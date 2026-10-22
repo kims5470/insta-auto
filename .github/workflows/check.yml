@@ -34,8 +34,8 @@ jobs:
             r=$(curl -sS -X POST "https://graph.instagram.com/${IG_USER_ID}/media" \
               --data-urlencode "image_url=${URL}" --data-urlencode "is_carousel_item=${item}" \
               --data-urlencode "access_token=${IG_ACCESS_TOKEN}")
-            echo "$r" | jq -c 'del(.error.fbtrace_id)'
+            echo "::notice title=item=$item create::$(echo "$r" | jq -c 'del(.error.fbtrace_id)')"
             id=$(echo "$r" | jq -r '.id // empty')
             if [ -n "$id" ]; then sleep 8; curl -sS -G "https://graph.instagram.com/${id}" \
-              --data-urlencode "fields=status_code,status" --data-urlencode "access_token=${IG_ACCESS_TOKEN}" | jq -c .; fi
+              --data-urlencode "fields=status_code,status" --data-urlencode "access_token=${IG_ACCESS_TOKEN}" | jq -c . | sed 's/^/::notice title=item='"$item"' status::/'; fi
           done

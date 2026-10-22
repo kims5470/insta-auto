@@ -1,0 +1,23 @@
+name: 연결 확인 (게시 안 함)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 토큰·계정·게시 한도 확인
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+        run: |
+          set -euo pipefail
+          echo "== 계정 =="
+          curl -sS --fail-with-body -G "https://graph.instagram.com/me" \
+            --data-urlencode "fields=user_id,username,account_type" \
+            --data-urlencode "access_token=${IG_ACCESS_TOKEN}" | jq .
+          echo "== 게시 한도 =="
+          curl -sS --fail-with-body -G "https://graph.instagram.com/${IG_USER_ID}/content_publishing_limit" \
+            --data-urlencode "fields=quota_usage,config" \
+            --data-urlencode "access_token=${IG_ACCESS_TOKEN}" | jq .

@@ -20,3 +20,10 @@ GitHub Actions가 15분마다 확인해서 `publish_at`이 지난 게시물을 �
 - `IG_ACCESS_TOKEN` — Instagram 장기 액세스 토큰
 - `IG_USER_ID` — Instagram 계정 ID (비워두면 `me` 사용)
 - `GH_PAT` — 토큰 자동 갱신용 GitHub 토큰 (Secrets 쓰기 권한)
+
+## 새벽 작업에서 추가하는 법
+
+```
+python3 scripts/add_post.py <01~05.png+원고.txt 폴더> <영문슬러그> <회사명> "2026-10-23 08:10"
+```
+블로그 예약 시각을 그대로 넣으면 그 시각에 인스타도 게시된다. 같은 캡션이 이미 있으면 추가하지 않는다(종료 코드 2).

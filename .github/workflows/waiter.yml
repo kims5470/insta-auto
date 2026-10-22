@@ -1,0 +1,67 @@
+name: 게시 시각 대기
+
+# posts/가 바뀌면(새벽 작업이 push) 다음 게시 시각까지 기다렸다가 정확히 그 시각에 게시를 실행한다.
+# GitHub 예약 실행(cron)은 늦거나 건너뛸 때가 있어서 이 방식이 주력, post.yml의 cron은 예비.
+
+on:
+  push:
+    branches: [main]
+    paths: ["posts/**"]
+  workflow_dispatch: {}
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: insta-waiter
+  cancel-in-progress: true   # 새로 push되면 이전 대기는 취소하고 다시 계산
+
+jobs:
+  wait:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 다음 게시 시각 계산
+        id: next
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, glob
+          from datetime import datetime, timezone
+          now = datetime.now(timezone.utc)
+          waits = []
+          for f in glob.glob("posts/*/meta.json"):
+              m = json.load(open(f, encoding="utf-8"))
+              if m.get("posted") or m.get("skipped") or m.get("attempts", 0) >= 3:
+                  continue
+              t = datetime.fromisoformat(m["publish_at"])
+              waits.append(max(0, int((t - now).total_seconds())))
+          if waits:
+              s = min(waits)
+              print(f"seconds={min(s, 330 * 60)}")
+              print(f"due={'true' if s <= 330 * 60 else 'false'}")
+          else:
+              print("seconds=-1")
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+      - name: 게시 시각까지 대기
+        if: steps.next.outputs.seconds != '-1'
+        run: sleep ${{ steps.next.outputs.seconds }}
+
+      - name: 게시 실행
+        if: steps.next.outputs.due == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run post.yml --repo "$GITHUB_REPOSITORY" --ref main
+
+      - name: 다음 대기 시작
+        if: steps.next.outputs.seconds != '-1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 방금 게시가 끝나고 기록될 시간을 준 뒤 다음 게시물을 기다린다
+          [ "${{ steps.next.outputs.due }}" = "true" ] && sleep 180
+          gh workflow run waiter.yml --repo "$GITHUB_REPOSITORY" --ref main

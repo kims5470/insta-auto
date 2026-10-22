@@ -12,7 +12,7 @@
 | `caption.txt` | 캡션 + 해시태그 (2,200자·해시태그 30개 이내) |
 | `meta.json` | `{"publish_at": "2026-10-23T09:40:00+09:00"}` — 블로그 발행 시간 |
 
-GitHub Actions가 15분마다 확인해서 `publish_at`이 지난 게시물을 올리고,
+GitHub Actions(게시 시각 대기 + 5분마다 예비 확인)가 `publish_at`이 지난 게시물을 올리고,
 `meta.json`에 `posted: true`와 `media_id`를 기록한다. 실패하면 `last_error`에 이유가 남고 최대 3번 재시도한다.
 
 ## 필요한 시크릿 (Settings → Secrets and variables → Actions)

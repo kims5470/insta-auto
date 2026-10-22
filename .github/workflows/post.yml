@@ -2,7 +2,7 @@ name: 인스타 자동 게시
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # 15분마다 확인 (UTC 기준이지만 간격만 의미 있음)
+    - cron: "*/5 * * * *"    # 5분마다 확인
   workflow_dispatch: {}       # Actions 탭에서 수동 실행 가능
 
 permissions:

@@ -99,9 +99,24 @@ def main():
 
     now = datetime.now(timezone.utc)
     failed = False
-    for meta_path in sorted(POSTS_DIR.glob("*/meta.json")):
+    metas = sorted(POSTS_DIR.glob("*/meta.json"),
+                   key=lambda p: json.loads(p.read_text(encoding="utf-8"))["publish_at"])
+
+    # 이미 올린 캡션은 다시 올리지 않는다 (중복 방지)
+    posted_caps = set()
+    for p in metas:
+        if json.loads(p.read_text(encoding="utf-8")).get("posted"):
+            posted_caps.add((p.parent / "caption.txt").read_text(encoding="utf-8").strip())
+
+    for meta_path in metas:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        if meta.get("posted") or meta.get("attempts", 0) >= MAX_ATTEMPTS:
+        if meta.get("posted") or meta.get("skipped") or meta.get("attempts", 0) >= MAX_ATTEMPTS:
+            continue
+        cap = (meta_path.parent / "caption.txt").read_text(encoding="utf-8").strip()
+        if cap in posted_caps:
+            meta["skipped"] = "duplicate"
+            meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            print(f"중복이라 건너뜀: {meta_path.parent.name}")
             continue
         publish_at = datetime.fromisoformat(meta["publish_at"])
         if publish_at.tzinfo is None:
@@ -116,6 +131,7 @@ def main():
             meta.update(posted=True, media_id=media_id,
                         posted_at=now.isoformat(timespec="seconds"))
             meta.pop("last_error", None)
+            posted_caps.add(cap)
             print(f"  완료: {media_id}")
         except Exception as e:  # noqa: BLE001
             meta["attempts"] = meta.get("attempts", 0) + 1
@@ -124,6 +140,7 @@ def main():
             failed = True
         meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n",
                              encoding="utf-8")
+        break  # 한 번 실행에 1개만 게시 → 실행이 밀려도 몰아서 올라가지 않음
 
     if failed:
         sys.exit(1)

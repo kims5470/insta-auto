@@ -1,7 +1,12 @@
 name: 연결 확인 (게시 안 함)
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      image_path:
+        description: "비율 테스트할 이미지 경로 (컨테이너만 만들고 게시 안 함)"
+        required: false
+        default: ""
 
 jobs:
   check:
@@ -13,11 +18,24 @@ jobs:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
         run: |
           set -euo pipefail
-          echo "== 계정 =="
           curl -sS --fail-with-body -G "https://graph.instagram.com/me" \
             --data-urlencode "fields=user_id,username,account_type" \
             --data-urlencode "access_token=${IG_ACCESS_TOKEN}" | jq .
-          echo "== 게시 한도 =="
-          curl -sS --fail-with-body -G "https://graph.instagram.com/${IG_USER_ID}/content_publishing_limit" \
-            --data-urlencode "fields=quota_usage,config" \
-            --data-urlencode "access_token=${IG_ACCESS_TOKEN}" | jq .
+      - name: 이미지 비율 테스트 (게시 안 함)
+        if: inputs.image_path != ''
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          URL: https://raw.githubusercontent.com/${{ github.repository }}/main/${{ inputs.image_path }}
+        run: |
+          set -uo pipefail
+          for item in true false; do
+            echo "== is_carousel_item=$item =="
+            r=$(curl -sS -X POST "https://graph.instagram.com/${IG_USER_ID}/media" \
+              --data-urlencode "image_url=${URL}" --data-urlencode "is_carousel_item=${item}" \
+              --data-urlencode "access_token=${IG_ACCESS_TOKEN}")
+            echo "$r" | jq -c 'del(.error.fbtrace_id)'
+            id=$(echo "$r" | jq -r '.id // empty')
+            if [ -n "$id" ]; then sleep 8; curl -sS -G "https://graph.instagram.com/${id}" \
+              --data-urlencode "fields=status_code,status" --data-urlencode "access_token=${IG_ACCESS_TOKEN}" | jq -c .; fi
+          done
